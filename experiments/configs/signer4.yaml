@@ -1,0 +1,122 @@
+task: S2T #S2T
+data:  
+  input_data: videos
+  input_streams:
+  - rgb
+  zip_file: data/phoenix-2014t/phoenix-2014t-videos.zip
+  dev: /data/phoenix-2014t_signer_independent/Signer04/dev
+  test: /data/phoenix-2014t_signer_independent/Signer04/test
+  train: /data/phoenix-2014t_signer_independent/Signer04/train 
+  dataset_name: phoenix-2014t
+  test_head_rgb_input: /experiments/outputs/phoenix-2014t_s2g_signer04/extract_feature/head_rgb_input/test.pkl
+  train_head_rgb_input: /experiments/outputs/phoenix-2014t_s2g_signer04/extract_feature/head_rgb_input/train.pkl
+  dev_head_rgb_input: /experiments/outputs/phoenix-2014t_s2g_signer04/extract_feature/head_rgb_input/dev.pkl 
+  level: word 
+  max_sent_length: 400
+  txt_lowercase: true
+  transform_cfg:
+    img_size: 224
+    aug_hflip: false
+    color_jitter: true
+    bottom_area: 0.7
+    center_crop_size: 224 
+    center_crop: True
+    randomcrop_threshold: 1
+    aspect_ratio_min: 0.75
+    aspect_ratio_max: 1.3
+testing:
+  cfg:
+    recognition:
+      beam_size: 1
+    translation:
+      length_penalty: 1
+      max_length: 100
+      num_beams: 5
+training:
+  best_ckpt_num: 5
+  batch_size: 32
+  keep_last_ckpts: 1 
+  load_ckpt: /experiments/outputs/phoenix-2014t_s2g_signer04/ckpts/best.ckpt
+  model_dir: /experiments/outputs/signer4
+  from_ckpt: false
+  num_workers: 4
+  optimization:
+    betas:
+    - 0.9
+    - 0.998
+    learning_rate:
+      default: 0.001 
+      mapper: 0.001 
+      translation: 1.0e-05
+    optimizer: Adam
+    scheduler: cosineannealing
+    t_max: 40
+    weight_decay: 0.001
+  overwrite: False
+  random_seed: 42
+  shuffle: true
+  total_epoch: 40
+  validation:
+    cfg:
+      recognition:
+        beam_size: 1
+      translation:
+        length_penalty: 1
+        max_length: 100
+        num_beams: 5
+    freq: 250
+    unit: step
+model:
+  RecognitionNetwork:
+    GlossTokenizer:
+      gloss2id_file: data/phoenix-2014t/gloss2ids_old.pkl
+    fuse_method: empty
+    s3d:
+      freeze_block: 1
+      pretrained_ckpt: pretrained_models/s3ds_actioncls_ckpt
+      use_block: 4
+    s3d_freeze: True
+    visual_head:
+      ff_kernelsize:
+      - 3
+      - 3
+      ff_size: 2048
+      hidden_size: 512
+      input_size: 832
+      pe: true
+      pretrained_ckpt: /experiments/outputs/phoenix-2014t_s2g_signer04/ckpts/best.ckpt
+    pretrained_path_rgb: /experiments/outputs/phoenix-2014t_s2g_signer04/ckpts/best.ckpt
+  TranslationNetwork:
+    if_eos_index: True
+    GlossEmbedding:
+      freeze: false
+      gloss2embed_file: pretrained_models/mBart_de/gloss_embeddings.bin
+    GlossTokenizer:
+      gloss2id_file: pretrained_models/mBart_de/gloss2ids.pkl
+      src_lang: de_DGS
+    TextTokenizer:
+      pretrained_model_name_or_path: pretrained_models/mBart_de
+      pruneids_file: pretrained_models/mBart_de/map_ids.pkl
+      tgt_lang: de_DE
+    freeze_txt_embed: false
+    label_smoothing: 0.2
+    load_ckpt: experiments/outputs/SingleStream/phoenix-2014t_g2t/ckpts/best.ckpt
+    overwrite_cfg:
+      attention_dropout: 0.1
+      dropout: 0.3
+    pretrained_model_name_or_path: pretrained_models/mBart_de
+  VLMapper:
+    in_features: 512
+    multistream_fuse: empty
+  My:
+    perputation_weight: 3.0
+    if_fp16: True
+    gamma: 10
+    aug_feature_path: /experiments/outputs/phoenix-2014t_s2g_signer04/extract_feature/head_rgb_input_aug
+    aug_kl_weight: 1.0
+    model_type: multiHead
+    IB_type: visualHead
+    debias_lm_head:
+      head_num: 4
+      T: 3
+      reg_weight: 0.5
